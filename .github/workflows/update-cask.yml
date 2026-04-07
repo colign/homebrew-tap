@@ -1,0 +1,36 @@
+name: Update Cask
+
+on:
+  repository_dispatch:
+    types: [update-cask]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update cask formula
+        run: |
+          VERSION="${{ github.event.client_payload.version }}"
+          ARM64_SHA="${{ github.event.client_payload.arm64_sha256 }}"
+          X64_SHA="${{ github.event.client_payload.x64_sha256 }}"
+
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" Casks/colign.rb
+
+          # Update arm64 sha (first sha256 in file)
+          sed -i "0,/sha256 \".*\"/{s/sha256 \".*\"/sha256 \"${ARM64_SHA}\"/}" Casks/colign.rb
+
+          # Update x64 sha (second sha256 in file)
+          sed -i "0,/sha256 \".*\"/! {0,/sha256 \".*\"/ s/sha256 \".*\"/sha256 \"${X64_SHA}\"/}" Casks/colign.rb
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/colign.rb
+          git commit -m "chore: bump colign to ${{ github.event.client_payload.version }}"
+          git push
